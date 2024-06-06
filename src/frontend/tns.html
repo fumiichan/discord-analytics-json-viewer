@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style type="text/tailwindcss">
+        div#root {
+            @apply p-4 w-full;
+
+            & .heading {
+                @apply font-sans text-xl mb-4;
+            }
+
+            & .table {
+                @apply relative table-auto w-full text-sm text-left rtl:text-right text-gray-500 mb-4;
+
+                & thead {
+                    @apply text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700;
+                    position: sticky;
+                    top: 0;
+
+                    & tr {
+                        & th {
+                            @apply px-6 py-3;
+                        }
+                    }
+                }
+
+                & tbody {
+                    & tr {
+                        @apply odd:bg-white even:bg-gray-50 border-b;
+
+                        & td {
+                            @apply px-6 py-4 font-medium text-gray-900 whitespace-nowrap;
+                        }
+                    }
+                }
+            }
+
+            & .navigator {
+                @apply flex flex-row space-x-4 justify-center w-full;
+
+                & .clear {
+                    @apply flex-grow;
+                }
+
+                & .navigator-btn {
+                    @apply hover:cursor-pointer hover:text-gray-700 text-black;
+                }
+
+                & .navigator-cur {
+                    @apply font-sans;
+                }
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <h1 class="heading">Discord Analytics Viewer</h1>
+        <table id="table-content" class="table"></table>
+        <div class="navigator">
+            <a href="#" id="previous-btn" class="navigator-btn">Previous</a>
+            <p id="counter-display" class="navigator-cur">Viewing 0 to 50</p>
+            <a href="#" id="next-btn" class="navigator-btn">Next</a>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            let _start = 0;
+            let _end = 50;
+        
+            async function getAnalyticsReport(start, end) {
+                const response = await fetch(`/api/v1/activity/tns?start=${start}&end=${end}`);
+                const data = await response.json();
+
+                // Tables in header
+                const headers = [];
+
+                for (const item of data.data) {
+                    for (const key of Object.keys(item)) {
+                        if (!headers.includes(key)) {
+                            headers.push(key)
+                        }
+                    }
+                }
+
+                return { headers, data: data.data }
+            }
+
+            function renderTable() {
+                const el = document.querySelector('table#table-content');
+                if (el === null) {
+                    return;
+                }
+
+                el.innerHTML = '';
+
+                getAnalyticsReport(_start, _end)
+                    .then(result => {
+                        // Table heads
+                        const thead = document.createElement('thead');
+                        const tr = document.createElement('tr');
+
+                        for (const key of result.headers) {
+                            const th = document.createElement('th');
+                            th.innerText = key;
+
+                            tr.appendChild(th);
+                        }
+                        thead.appendChild(tr);
+                        el.appendChild(thead);
+
+                        // Body
+                        const tbody = document.createElement('tbody');
+                        for (const data of result.data) {
+                            const row = document.createElement('tr');
+
+                            for (const key of result.headers) {
+                                const td = document.createElement('td');
+                                if (data[key]) {
+                                    td.innerText = data[key];
+                                } else {
+                                    td.innerText = 'N/A';
+                                }
+
+                                row.appendChild(td);
+                            }
+
+                            tbody.appendChild(row);
+                        }
+                        el.appendChild(tbody);
+                    });
+            }
+
+            document.querySelector('#previous-btn').onclick = function () {
+                if (_start <= 0) {
+                    return;
+                }
+
+                _start = _start - 50;
+                if ((_end - 50) <= 0) {
+                    _end = 50;
+                } else {
+                    _end = _end - 50;
+                }
+
+                document.querySelector('#counter-display').innerText = `Viewing ${_start} of ${_end}`;
+
+                renderTable();
+            }
+
+            document.querySelector('#next-btn').onclick = function () {
+                _start = _start + 50;
+                _end = _end + 50;
+
+                document.querySelector('#counter-display').innerText = `Viewing ${_start} of ${_end}`;
+
+                renderTable();
+            }
+
+            renderTable();
+        })();
+    </script>
+</body>
+</html>
